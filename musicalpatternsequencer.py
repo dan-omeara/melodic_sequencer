@@ -149,7 +149,10 @@ melody = \\relative {
 
 def run_lilypond():
     """
-    Opens Lilypond with a shell command. Note that the 
+    Opens Lilypond with a shell command. 
+    Lilypond is required, and needs to be placed in the same directory as the main program.
+    It can be downloaded here (https://lilypond.org/doc/v2.25/Documentation/web/index)
+
     """
     filename = "test.ly"
     result = subprocess.run(["lilypond-2.24.3/bin/lilypond test.ly"], shell=True)
