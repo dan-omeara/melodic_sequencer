@@ -2,7 +2,9 @@
 
 A console program that generates a PDF of melodic exercises based a user inputted scale and pattern. The program relies on the [Lilypond music scripting software](https://lilypond.org/). An online compiler of Lilypond can be found at [Hacklily](https://hacklily.org/). Note that Hacklily uses an older version of Lilypond.
 
-In order to generate PDFs, the folder must be set up. To do this, download Lilypond and place its folder the in the same directory as musicalpatternsequencer.py, test.ly, and test.pdf.
+In order to generate PDFs, the folder must be set up with two elements: 
+ * Lilypond - just download Lilypond and place its folder the in the same directory as musicalpatternsequencer.py
+ * test.ly - set up an empty text file, labeled test.ly, in the same directory
 
 ## Technical Details
 
