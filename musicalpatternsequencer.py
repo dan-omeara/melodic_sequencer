@@ -3,14 +3,13 @@ File: musicalpatternsequencer.py
 Author: Dan O'Meara
 ---
 A practice tool for musicians. 
-Using "digital patterns" like 1235 (in C maj, C D E G),
-a user can generate PDFs in musical notation of the 
-digital pattern repeated across a given scale.
+Using "digital patterns" like 1235 (in C maj, C D E G),a user can generate PDFs 
+in musical notation of the digital pattern repeated across a given scale.
 
 This is still at a prototype stage, and a wishlist of extra features appears in README.
 
 TODO:
--Adding modes
+-Test for very long patterns and how this affects layout
 -Octave displacement issues with Lilypond notation
 -Extension: User preview of pattern before generating full PDF
 -Extended user input/settings (ascending/descending, 
@@ -58,13 +57,19 @@ def basic_input():
     """
     User inputs core elements (scale and pattern) to be sequenced 
     and returns these to the main function
+    Returns:
+    -user_scale: scale in letter format [list]
+    -user_scale_name: name of scale [string]
+    -user_pattern: scale degree pattern [list]
+    -settings: advanced settings [dict]
     """
-    user_scale, user_scale_string = input_scale()
+    user_scale, user_scale_name = input_scale()
     user_pattern = input_pattern(user_scale)
+    settings = advanced_settings()
 
-    print(user_scale_string.capitalize(), "scale:", user_scale)
+    print(user_scale_name.capitalize(), "scale:", user_scale)
     print("Pattern:", user_pattern)
-    return user_scale, user_scale_string, user_pattern
+    return user_scale, user_scale_name, user_pattern, settings
 
 
 def input_scale():
@@ -77,22 +82,20 @@ def input_scale():
     """
     unkn_scale = "Hmm, I don't know that scale. "
     init_options = "Enter 'major' or 'minor': "
-    min_options = "Enter 'natural minor', 'melodic minor', or 'harmonic minor: "
+    min_options = "Enter 'natural minor', 'melodic minor', or 'harmonic minor': "
 
-    valid_inputs = ALLOWED_SCALES.keys()
+    init_valid_inputs = ALLOWED_SCALES.keys()
+    min_valid_inputs = ["natural minor", "melodic minor", "harmonic minor"]
     print("First, let's select a scale.")
-    user_scale_string = input("What type of scale would you like to use? " +
-                              init_options).lower().strip()
 
     # Checks for valid inputs
-    while user_scale_string not in valid_inputs:
-        user_scale_string = input(unkn_scale + init_options).lower().strip()
+    user_scale_string = check_input_valid("What type of scale would you like to use? " +
+                      init_options, init_valid_inputs, unkn_scale)
 
     # Specifies type of minor scale and checks for valid inputs
     if user_scale_string == 'minor':
-        user_scale_string = input("Which type of minor? " + min_options).lower().strip()
-        while user_scale_string not in valid_inputs:
-            user_scale_string = input(unkn_scale + min_options).lower().strip()
+        user_scale_string = check_input_valid("Which type of minor? " + min_options,
+                                              min_valid_inputs, unkn_scale)
 
     # TBD Enable custom scale entry; use if-else structure with allowable list code below
     # elif user_scale_string == 'custom':
@@ -141,6 +144,53 @@ def input_pattern(scale):
     return user_input_pattern
 
 
+def advanced_settings():
+    """
+    User inputs advanced settings.
+    Returns settings [dict]
+    """
+    valid_inputs = ["y", "n"]
+
+    # Sets default settings
+    settings = {
+        "modes" : False
+    }
+    enter_settings = check_input_valid("Enter advanced settings (y/n)? ", valid_inputs)
+    if enter_settings == "n":
+        return settings
+    else:
+        print("\n" + "---Advanced settings---" + "\n"
+            )
+
+        settings["modes"] = check_input_valid("Generate all modes of scale (y/n)? ", valid_inputs)
+
+        # Convert to bools
+        for option in settings:
+            if settings[option] == "y":
+                settings[option] = True
+            else:
+                settings[option] = False
+
+        print("---") # Section separator for clarity
+        return settings
+
+
+def check_input_valid(prompt, valid_values, error_message = "Invalid input. Try again." + "\n"):
+    """
+    Checks if user input is within 
+    Note that this does not display specific error messages,
+    so it is best used for generic cases.
+    Parameters:
+    -prompt: display message to prompt input [string]
+    -valid_values: valid entries [list]
+    """
+    entry = input(prompt).strip().lower()
+    while entry not in valid_values:
+        print(error_message)
+        entry = input(prompt).strip().lower()
+    return entry
+
+
 def wait_to_proceed():
     """
     Prompts the user to continue.
@@ -170,15 +220,18 @@ def int_seq_to_letters(sequence, key_type):
     Defaults to flats per jazz convention, but avoids double-flat signatures
     (therefore Db and Gb are spelled as C# and F#, to avoid double flats
     in minor key signatures)
+    Returns:
+    -new_sequence in letter notation [list]
     """
+    new_sequence = []
     if key_type == "minor":
-        for i in range(len(sequence)):
-            sequence[i] = KEYS_CONVERSION[sequence[i]]
-    else: 
-        for i in range(len(sequence)):
-            sequence[i] = FLATS_CONVERSION[sequence[i]]
-    
-    return sequence
+        for note in sequence:
+            new_sequence.append(KEYS_CONVERSION[note])
+    else:
+        for note in sequence:
+            new_sequence.append(FLATS_CONVERSION[note])
+
+    return new_sequence
 
 
 # ---Functions for generating melodic sequence---
@@ -221,18 +274,16 @@ def get_key(name_of_scale):
         return "custom" # default to major
 
 
-def pattern_across_scale(scale, pattern):
+def pattern_on_scale(scale, pattern):
     """
-    Generates a melodic motif played across a given scale.
+    Applies the scale-degree pattern to the scale.
     Converts pattern to diatonic interval shift list indicating 
-    the number of indices to move along the scale for each note in the pattern
+    the number of indices to move along the scale for each note in the pattern.
     Parameters:
     -scale: scale in integer notation [list]
     -pattern: pattern in diatonic scale degrees [list]
     Returns:
     -motif: motif/pattern in integer notation applied to the start of the scale [list]
-    -starting_degree_shift: number of diatonic scale degrees to shift first note 
-    with respect to root of scale [int]
     """
 
     motif = []
@@ -246,9 +297,6 @@ def pattern_across_scale(scale, pattern):
         diatonic_interval_shift = pattern[i] - pattern[0] + starting_degree_shift
         diatonic_interval_shifts.append(diatonic_interval_shift)
 
-    # For debugging, check correct (comment out if not needed)
-    # print("pattern_across_scale / diatonic_interval_shifts = ", diatonic_interval_shifts)
-
     # Make first iteration of the pattern, applied to the scale
     for i in range(len(pattern)):
         # Finds the index in the scale of the next note to add
@@ -256,7 +304,7 @@ def pattern_across_scale(scale, pattern):
         motif.append(scale[next_note_index])
         next_note_index = 0
 
-    return motif, starting_degree_shift
+    return motif
 
 
 def determine_start_deg_shift(pattern):
@@ -273,128 +321,236 @@ def determine_start_deg_shift(pattern):
     return starting_degree_shift
 
 
-# ---Lilypond-related functions---
-def make_seq_lilypond_string(scale_list):
+def generate_modes(scale):
+    """
+    Generates modes of a given scale
+    Parameter: 
+    -scale in integer notation [list]
+    Returns:
+    -modes in integer notation [list of lists]
+    """
+    all_modes = []
+    next_mode = scale[:] # Makes a copy of list to avoid overwrite
+    for note in scale:
+        all_modes.append(next_mode)
+        next_mode = modal_rotation(next_mode[:]) # Makes a copy of list to avoid overwrite
+    return all_modes
+
+
+def modal_rotation(scale):
+    """
+    Rotate scale to start on next mode
+    Parameters:
+    -ly_scale: scale in any format (integer, letter, Lilypond) [list]
+    Returns rotated scale on next mode in same format [list]
+    """
+    first_note = scale.pop(0)
+    scale.append(first_note)
+    return scale
+
+
+# ---Lilypond-related conversion functions---
+def ly_scale_to_sequence(scale):
     """
     Generates a string in Lilypond format for the main melodic sequence of the program.
-    Uses the modal transpose feature in Lilypond
+    Uses the modal transpose feature in Lilypond.
     Parameter:
-    -scale_list: scale as a list of letter names in LY format
-    Output: returns melody string in LY format
+    -scale_list: scale as letter names in LY format [list]
+    Output: returns melody string in LY format [string]
     """
     from_pitch = 'c'
-    lilyp_staff_body = ""
+    lilyp_single_seq = ""
 
     # Iterating along each note in the scale to repeat the motif
-    for i in range(len(scale_list)):
-        to_pitch = scale_list[i]
-        lilyp_staff_body += ('\\modalTranspose ' + str(from_pitch) + " " + str(to_pitch) +
+    for note in scale:
+        to_pitch = note
+        lilyp_single_seq += ('\\modalTranspose ' + str(from_pitch) + " " + str(to_pitch) +
                               ' \\diatonicScale \\motif \n')
 
-    lilyp_staff_body += "\n}" # Final line break for LY legibility
+    lilyp_single_seq += "\n}" # Final line break for LY legibility
 
-    return lilyp_staff_body
+    return lilyp_single_seq
 
 
-def lett_to_ly_list(melody, add_slur = False):
+def lett_list_to_ly_list (melody):
     """
-    Input: melody as list of letter names in standard format
-    Output: melody as list of letter names in LY format
+    Turns a given melody (in list, letter/LY format) into a list in Lilypond format
+    Can be applied repeatedly as a check without changing LY format
+    Parameters: melody as letter names in standard/LY letter format [list]
+    Output: melody as LY format [list]
     """
     new_melody = []
 
-    for i in range (len(melody)):
-        # Convert accidentals to "f"/"s" LY notation
-        # Note that this requires LY language to be set to "english"
-        if melody[i].endswith("b"):
-            new_melody.append(melody[i].replace("b", "f"))
-        elif melody[i].endswith("#"):
-            new_melody.append(melody[i].replace("#", "s"))
-        else:
-            new_melody.append(melody[i])
+    for note in melody:
+        new_melody.append(lett_to_ly(note))
 
-        # Add parentheses for slurs
-        # TODO convert this to an index insert instead of append to make it its own module
-        if add_slur == True:
-            if i == 0: # if first note in pattern
-                new_melody.append("(")
-            elif i == (len(pattern) - 1):
-                new_melody.append(")")
-
-    # Convert all letters to lowercase
-    new_melody = [x.lower() for x in new_melody]
     return new_melody
 
 
-def notes_to_lilypond(rhythm_val, melody, add_slur = False):
+def ly_add_slur(melody):
     """
-    Converts melody in letter notation to Lilypond (LY) melody notation
-    Parameters:
-    -rhythm_val list with 4 elements at different indices (see comments for related function)
-    -melody given in list in standard letter name notation (e.g., ['C', 'Eb', 'F#'])
-    -add_slur Boolean, which will be True if the melody should be grouped together in a slur
-    (this defaults to False)
+    Adds LY slur notation to a given list
+    Parameter:
+    -melody: a melody in LY notation [list]
     Returns:
-    -melody as a string in Lilypond format, including rhythm headers
-    -melody as a list, with entries in Lilypond format
+    -melody in LY notation with slurs [list]  
+    """
+    new_melody = melody
+    new_melody.insert(1, "(")
+    new_melody.append(")")
+    return new_melody
+
+
+def ly_to_lett(note):
+    """
+    Converts a given note from Lilypond letter format to standard letter format
+    E.g., "bf" -> "Bb"
+    Can be repeatedly applied without issues.
+    Parameter: note in LY format ("bf") [string]
+    Returns converted note in standard letter ("Bb") [string]
+    """
+    note = note.capitalize()
+    note = note.replace("f", "b")
+    note = note.replace("s", "#")
+    return note
+
+
+def lett_to_ly(note):
+    """
+    Converts a given note from standard letter format to Lilypond letter format
+    E.g., "Bb" -> "bf"
+    Parameter: note in standard or LY letter format ("Bb") [string]
+    Returns converted note in LY format ("bf") [string]
+    """
+    note = note.capitalize() # Added element to handle LY input
+    if note.endswith("b") and note != "b":
+        note = note.replace("b", "f")
+    note = note.replace("#", "s")
+    note = note.lower()
+    return note
+
+
+def ly_note_to_ly_text(note):
+    """
+    Converts ly format to ly markup text format
+    Parameter: note in ly note format [string]
+    Returns: text in ly text format[string]
+    """
+    note = note.capitalize() # Safeguard for LY input
+    if note.endswith("s"):
+        new_text = "\\concat{" + note.replace("s","") + "\\super\\sharp}"
+    elif note.endswith("f"):
+        new_text = "\\concat{" + note.replace("f","") + "\\super\\flat}"
+    else:
+        new_text = note
+    return new_text
+
+
+#---Functions for compiling Lilypond string---
+def ly_list_to_melody(rhythm_val, melody):
+    """
+    Converts list in LY notation to Lilypond (LY) melody notation string
+    Parameters:
+    -rhythm_val list with 4 elements at different indices (see comments for related function) [list]
+    -melody given in LY letter name notation (e.g., ['c', 'ef', 'fs']) [list]
+    Returns:
+    -melody as a string in Lilypond format, including rhythm headers [string]
     """
 
-    new_melody = []
-
-    new_melody = lett_to_ly_list(melody, add_slur)
-
-    # Convert to a string
+    # Initialize string
     melody_string = ""
 
-    # Add octave and rhythm value notation to first pitch
-    melody_string = (str(rhythm_val[2]) + # tuplet header
-                     melody_string.join(new_melody[0] + "'" + str(rhythm_val[0])))
+    # Add octave and rhythm value notation to first pitch (plus tuplet header if appl.)
+    melody_string = (str(rhythm_val[2]) +
+                     melody_string.join(melody[0] + "'" + str(rhythm_val[0])))
 
-    # Add subsequent pitches
-    melody_string = melody_string + " " + " ".join(new_melody[1:]) + str(rhythm_val[3])
+    # Add subsequent pitches (and tuplet header if appl.)
+    melody_string = melody_string + " " + " ".join(melody[1:]) + str(rhythm_val[3])
 
-    return melody_string, new_melody
+    return melody_string
 
 
-def make_lilypond_script(scale_let_seq, motif_let_seq, rhythm_val, key_qual):
+def make_ly_script(scale_let_seq, motif_let_seq, rhythm_val, key_sig_qual, name_of_scale, settings):
     """
     Converts melodic motif to a sequence over a given scale.
     Parameters:
     -scale: scale given in standard letter name notation e.g., ['C', 'Eb', 'F#'] [list]
     -motif: melodic motif in standard letter name notation [list]
     -rhythm_val: 4-parameter list with rhythm value information for motif [list]
-    -key_qual: a string with the key quality (major, minor or custom) [string]
+    -name_of_scale: the full name of the scale (e.g., "natural minor") [string]
+    -key_sig_qual: a string with the key signature quality (major, minor or custom) [string]
     Output: writes changes to file test.ly
     """
 
-    # Convert scale and motif to lilypond format
-    motif_lilyp_string = notes_to_lilypond(rhythm_val, motif_let_seq, True)[0]
-    scale_lilyp_string, scale_list = notes_to_lilypond(rhythm_val, scale_let_seq, False)
+    # Convert scale and motif to lilypond format (as lists)
+    motif_ly_list = lett_list_to_ly_list(motif_let_seq)
+    scale_ly_list = lett_list_to_ly_list(scale_let_seq)
+    ly_add_slur(motif_ly_list)
+
+    # Convert ly lists to melody strings
+    motif_lilyp_string = ly_list_to_melody(rhythm_val, motif_ly_list)
+    scale_lilyp_string = ly_list_to_melody(rhythm_val, scale_ly_list)
 
     lilyp_header = '\\version "2.24.3" \n\n\\language "english"\n\n#(set-global-staff-size 20)'
     lilyp_scale_pre = "diatonicScale = \\relative {"
     lilyp_motif_pre = "motif = \\relative {"
 
-    # Generate main melody string in LY format
-    lilyp_staff_melody = make_seq_lilypond_string(scale_list)
+    # Generate main melodic sequence string in LY format
+    lilyp_staff_melody = ly_scale_to_sequence(scale_ly_list)
 
-    # Generate series of transposed melodies as string in LY format
-    keys = lett_to_ly_list(int_seq_to_letters(ALLOWED_PROGRESSIONS["circle of fifths"], key_qual))
-    from_pitch = 'c'
-
+    # Initialize staff string (for all melodic components)
     lilyp_staff_body = ""
-    for key in keys:
-        lilyp_staff_body += ("\n\\new Staff{\n\\key " + str(key) + " \\" + str(key_qual) +
-                             "\n\\transpose " + str(from_pitch) + " " + str(key) + " {\n" +
-                             lilyp_staff_melody + "}")
 
+    # Generating keys to transpose over
+    keys = lett_list_to_ly_list(int_seq_to_letters(ALLOWED_PROGRESSIONS["circle of fifths"],
+                           key_sig_qual))
+    from_pitch = 'c' 
+
+    # Transpose to all 12 keys
+    for key in keys:
+
+        # Checks whether to print modes
+        if settings["modes"]:
+
+            # Generate modes of scale
+            modes_ly_list = generate_modes(scale_ly_list)
+
+            # Repeating sequence across all modes of scale
+            for i, mode in enumerate(modes_ly_list):
+                # Generate melody string
+                mode_lilyp_string = ly_list_to_melody(rhythm_val, mode)
+                lilyp_mode_melody = ly_scale_to_sequence(mode)
+
+                # Add text, key sig, and melody to body string
+                lilyp_staff_body += ("\\markup {" + str(ly_note_to_ly_text(key)) + " " +
+                                     str(name_of_scale) + "}\n" +
+                                     "\\markup \\italic {" + "Mode " + str(i + 1) + "}\n" +
+                                     lilyp_scale_pre + mode_lilyp_string + "}" +
+                                     "\n\\new Staff{\n\\key " + str(key) +
+                                     " \\" + str(key_sig_qual) +
+                                     "\n\\transpose " + str(from_pitch) + " " + str(key) + " {\n" +
+                                     lilyp_mode_melody + "}\n")
+
+            lilyp_staff_body += "\\pageBreak\n\n" # Page break between keys
+
+        # If modes is not True, just prints in all keys
+        else:
+            lilyp_staff_body += ("\\markup {" + ly_note_to_ly_text(key) + " " +
+                                 str(name_of_scale) + "}\n" +
+                                 lilyp_scale_pre + scale_lilyp_string + "}" +
+                                "\n\\new Staff{\n\\key " + str(key) + " \\" + str(key_sig_qual) +
+                                "\n\\transpose " + str(from_pitch) + " " + str(key) + " {\n" +
+                                lilyp_staff_melody + "}")
+
+    # Compiles final string with all elements
     lilyp_full_text = "\n".join([lilyp_header,
-                                 lilyp_scale_pre, scale_lilyp_string, "}",
                                  lilyp_motif_pre, motif_lilyp_string, "}",
                                  lilyp_staff_body])
+
     return lilyp_full_text
 
 
+#---Functions to produce PDF---
 def write_to_ly_file(lilypond_script, filename = 'test.ly'):
     """
     Writes text to file in the directory. 
@@ -402,15 +558,14 @@ def write_to_ly_file(lilypond_script, filename = 'test.ly'):
     """
     try:
         f = open(filename, "w", encoding="utf-8")
-        f.write(lilypond_script)
-        f.close()
-        return "Successfully written to " + filename + "."
-    except:
-        return "Error writing to " + filename + "."
-
-    # Test: reading from the file
-    # f = open("test.ly", "r")
-    # print(f.read())
+        try:
+            f.write(lilypond_script)
+            f.close()
+            print("Successfully written to " + filename + ".\n")
+        except (IOError, OSError):
+            print ("Error writing to " + filename + ".")
+    except (FileNotFoundError, NameError, PermissionError, OSError):
+        return "Error opening " + filename + "."
 
 
 def run_lilypond(filename = 'test.ly'):
@@ -422,34 +577,41 @@ def run_lilypond(filename = 'test.ly'):
     """
     subprocess.run(["lilypond-2.24.3/bin/lilypond " + filename], shell=True, check=False)
 
+#---Main function---
+def main():
+    """
+    Main function.
+    Includes default parameters at the top for testing.
+    """
 
-"""
---- Main function ---
-"""
+    # Default parameters for testing
+    # scale = ALLOWED_SCALES["major"]
+    # pattern = [1, 2, 4, 5]
+    # rhythm_val = [8, 4, "", ""]
 
-# Default parameters for testing
-# scale = ALLOWED_SCALES["major"]
-# tonic = 0
-# pattern = [1, 2, 4, 5]
-# rhythm_val = [8, 4, "", ""]
+    # User input
+    welcome_message()
+    scale, name_of_scale, pattern, settings = basic_input()
+    wait_to_proceed()
 
-# User input
-welcome_message()
-scale, scale_string, pattern = basic_input()
-wait_to_proceed()
+    # Generating basic sequence and related details
+    rhythm_val = determine_rhyth_val(pattern)
+    key_sig_qual = get_key(name_of_scale)
+    motif_int_seq = pattern_on_scale(scale, pattern)
 
-# Generating basic sequence and related details
-rhythm_val = determine_rhyth_val(pattern)
-key_string = get_key(scale_string)
-motif_int_seq, motif_start_shift = pattern_across_scale(scale, pattern)
+    # Converting relevant melodies in integer notation to letter names
+    motif_let_seq = int_seq_to_letters(motif_int_seq, key_sig_qual)
+    scale_let_seq = int_seq_to_letters(scale, key_sig_qual)
 
-# Converting relevant melodies in integer notation to letter names
-motif_let_seq = int_seq_to_letters(motif_int_seq, key_string)
-scale_let_seq = int_seq_to_letters(scale, key_string)
+    # Generating Lilypond script in test.ly
 
-# Generating Lilypond script in test.ly
-lilypond_script = make_lilypond_script(scale_let_seq, motif_let_seq, rhythm_val, key_string)
-write_to_ly_file(lilypond_script)
+    lilypond_script = make_ly_script(scale_let_seq, motif_let_seq, rhythm_val,
+                                     key_sig_qual, name_of_scale, settings)
+    write_to_ly_file(lilypond_script)
 
-# Launching Lilypond and generating PDF as test.pdf
-run_lilypond()
+    # Launching Lilypond and generating PDF as test.pdf
+    run_lilypond()
+
+
+if __name__ == '__main__':
+    main()

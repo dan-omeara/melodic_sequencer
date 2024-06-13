@@ -21,6 +21,8 @@ To output a PDF of a given melody, the program:
 
 * Adding modes + additional scales
 * Octave displacement issues with Lilypond notation - _user cannot specify which octave they would like each note to appear; it defaults to as close as possible to the previous pitch_
+* Changing paper size to better fit on phones
+* Adding document metadata
 
 ## Further extensions
 * Providing user with preview of pattern before generating full PDF
