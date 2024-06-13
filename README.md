@@ -10,8 +10,8 @@ In order to generate PDFs, the folder must be set up with two elements:
 
 To output a PDF of a given melody, the program:
 * Takes in input from the user for the scale and melodic pattern to be sequenced
-* Converts these to integer notation and does some calculations to generate new melodic sequence
-* Converts this sequence to a music scripting language called Lilypond
+* Converts these to [integer notation](https://en.wikipedia.org/wiki/Pitch_class#Integer_notation) and does some calculations to generate new melodic sequence
+* Converts this sequence to a music scripting language called [Lilypond](https://lilypond.org/)
 * Writes this to a file so it can be compiled in Lilypond.
 * Runs Lilypond from the command shell to generate a PDF.
 
@@ -21,8 +21,9 @@ To output a PDF of a given melody, the program:
 
 ## Todo
 
-* Adding modes + additional scales
-* Octave displacement issues with Lilypond notation - _user cannot specify which octave they would like each note to appear; it defaults to as close as possible to the previous pitch_
+* Adding additional scales
+* Octave displacement issues with Lilypond notation - _user cannot specify which octave they would like each note to appear. Within the pattern, it defaults to as close as possible to the previous pitch. When sequenced, it avoids extending an octave above the first note in the scale._
+* Improve page layout for long sequences
 * Changing paper size to better fit on phones
 * Adding document metadata
 
